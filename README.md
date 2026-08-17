@@ -17,20 +17,23 @@ plays it.
 ### Steps
 
 #### 1- Clone repo
-`git clone https://github.com/SifonFelipe/PyPrismCast.git`
+```
+git clone https://github.com/SifonFelipe/PyPrismCast.git
+```
 
 #### 2- Change directory and Syncronize venv
-`cd PyPrismCast`
+```
+cd PyPrismCast
 
-
-`uv sync`
-
+uv sync
+```
 
 ## Quick Start
 Move your movies to `movies/` folder. Then, run:
 
-
-`uv run main.py`
+```
+uv run main.py
+```
 
 
 It will format the movies to a format that the Chromecast will accept. This step will take some
@@ -40,8 +43,9 @@ time, even more if they are long or many.
 ## Tip
 If you have many movies and want to format them all, just run:
 
-
-`uv run transcode.py`
+```
+uv run transcode.py
+```
 
 
 
