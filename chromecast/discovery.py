@@ -20,6 +20,10 @@ def select_chromecast(chromecasts):
     """
     casts = {idx: cast for idx, cast in enumerate(chromecasts)}
 
+    if len(casts) == 1:
+        print(f"Only one Chromecast device found: {casts[0].name}. Automatically selecting it.")
+        return casts[0]
+
     while True:
         print("Available Chromecast devices:")
         for idx, cast in casts.items():

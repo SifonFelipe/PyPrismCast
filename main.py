@@ -1,11 +1,15 @@
 from pathlib import Path
 
 import chromecast as cc
+
 from servers import media
 from servers import control
 from servers.utils import get_local_ip
+
 from movies import select_movie
-from transcode import ensure_library_playable
+
+from transcode import video
+from transcode import subtitles
 
 BASE_DIR = Path(__file__).resolve().parent
 MOVIES_DIR = BASE_DIR / "movies"
@@ -22,7 +26,7 @@ def run():
     # converts everything in MOVIES_DIR to a playable format if needed.
     # WARNING: this may take long!
     print("Checking if all movies are playable...")
-    ensure_library_playable(MOVIES_DIR)
+    video.ensure_library_playable(MOVIES_DIR)
 
     # === Media server (hosts movie/video files) ===
     media_server = media.run_server(MOVIES_DIR, port=MEDIA_PORT)

@@ -4,6 +4,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from .subtitles import extract_subtitles
+
 # Codecs that the Default Media Receiver of Chromecast can play natively.
 COMPATIBLE_VIDEO_CODECS = {"h264"}
 COMPATIBLE_AUDIO_CODECS = {"aac"}
@@ -160,6 +162,11 @@ def ensure_playable(path: Path) -> Path:
         return path
 
     print(f"\nProcessing: '{path.name}'")
+
+    # Extract subs before replacing the original file
+    subs = extract_subtitles(path)
+    if subs:
+        print(f" -> Extracted {len(subs)} subtitle streams as WebVTT files.")
 
     video_codec, pix_fmt, width, height = probe_video(path)
     audio_codec, channels = probe_audio(path)

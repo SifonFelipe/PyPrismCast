@@ -20,3 +20,11 @@ wheels/
 
 # Tags
 tags
+
+# Subs
+*.srt
+*.ass
+*.vtt
+*.webvtt
+*.ssa
+*.sub
