@@ -1,77 +1,113 @@
-from threading import Thread
+import asyncio
+import json
 
-from flask import Flask, jsonify, request
+from queue import Queue
+
+from threading import Thread
+from hypercorn.asyncio import serve
+from hypercorn.config import Config
+
+from quart import Quart, jsonify, render_template, websocket
 
 from chromecast.player import ChromecastPlayer
 
 
-def create_control_server(player: ChromecastPlayer):
-    app = Flask(__name__)
+class ControlServer:
+    def __init__(self, player: ChromecastPlayer, webdir):
+        self.player = player
+        self.status_queue = Queue()
 
-    @app.post("/player/play")
-    def play():
-        player.play()
-        return jsonify(ok=True)
-
-    @app.post("/player/pause")
-    def pause():
-        player.pause()
-        return jsonify(ok=True)
-
-    @app.post("/player/stop")
-    def stop():
-        player.stop()
-        return jsonify(ok=True)
-
-    @app.post("/player/seek")
-    def seek():
-        data = request.get_json()
-
-        position = float(data["position"])
-
-        player.seek(position)
-
-        return jsonify(
-            ok=True,
-            position=position,
+        self.app = Quart(
+            __name__,
+            template_folder=webdir / "templates",
+            static_folder=webdir / "static",
         )
 
-    @app.post("/player/seek-relative")
-    def seek_relative():
-        data = request.get_json()
+        self._setup_routes()
 
-        seconds = float(data["seconds"])
+    def on_player_status(self, status):
+        self.status_queue.put(status)
 
-        player.seek_relative(seconds)
+    def _setup_routes(self):
+        @self.app.get("/")
+        async def index():
+            return await render_template("index.html")
 
-        return jsonify(
-            ok=True,
-            seconds=seconds,
+        @self.app.get("/api/status")
+        async def status():
+            return jsonify(self.player.status)
+
+        @self.app.websocket("/ws")
+        async def websocket_handler():
+            while True:
+                message = await websocket.receive()
+                await self.handle_command(message)
+
+    async def handle_command(self, raw_message: str):
+        message = json.loads(raw_message)
+        command = message.get("type")
+
+        match command:
+            case "play":
+                self.player.play()
+            case "pause":
+                self.player.pause()
+            case "toggle":
+                self.player.toggle()
+            case "seek_relative":
+                seconds = message.get("seconds", 0)
+                self.player.seek_relative(seconds)
+            case "seek":
+                position = message.get("position", 0)
+                self.player.seek(position)
+            case "stop":
+                self.player.stop()
+            case "volume_up":
+                increment = message.get("increment", 0.1)
+                self.player.volume_up(increment)
+            case "volume_down":
+                decrement = message.get("decrement", 0.1)
+                self.player.volume_down(decrement)
+
+    def start(self, host="0.0.0.0", port=8001):
+        thread = Thread(
+            target=self._run,
+            args=(host, port),
+            daemon=True
         )
 
-    return app
+        thread.start()
 
+        print(f"[control] Server started on port {port}")
 
-def run_control_server(
-    player: ChromecastPlayer,
-    host: str = "0.0.0.0",
-    port: int = 8001,
-):
-    app = create_control_server(player)
+        return thread
 
-    thread = Thread(
-        target=app.run,
-        kwargs={
-            "host": host,
-            "port": port,
-            "debug": False,
-            "use_reloader": False,
-        },
-        daemon=True
-    )
+    def run(
+        self,
+        host: str = "0.0.0.0",
+        port: int = 8001,
+    ):
+        self.app.run(
+            host=host,
+            port=port,
+            debug=False,
+            use_reloader=False,
+        )
+        # asyncio.run(self._run_async(host, port))
 
-    thread.start()
+    async def _run_async(self, host: str, port: int):
+        self._shutdown_event = asyncio.Event()
 
-    print(f"[control] Server started on port {port}")
+        config = Config()
+        config.bind = [f"{host}:{port}"]
 
-    return app
+        await serve(
+            self.app,
+            config,
+            shutdown_trigger=self._shutdown_event.wait
+        )
+
+    def stop(self):
+        if self._shutdown_event is not None:
+            pass
+

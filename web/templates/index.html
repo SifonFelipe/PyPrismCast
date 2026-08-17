@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>PyCast</title>
+</head>
+
+<body>
+
+    <h1>PyCast</h1>
+
+    <p>
+        Estado:
+        <strong id="state">Connecting...</strong>
+    </p>
+
+    <p>
+        Tiempo:
+        <span id="time">00:00</span>
+    </p>
+
+    <button onclick="sendCommand('play')">
+        Play
+    </button>
+
+    <button onclick="sendCommand('pause')">
+        Pause
+    </button>
+
+    <button onclick="sendCommand('stop')">
+        Stop
+    </button>
+
+    <button onclick="sendCommand('seek_relative', {seconds: -10})">
+        -10s
+    </button>
+
+    <button onclick="sendCommand('seek_relative', {seconds: 10})">
+        +10s
+    </button>
+
+    <script src="/static/js/app.js"></script>
+
+</body>
+</html>
