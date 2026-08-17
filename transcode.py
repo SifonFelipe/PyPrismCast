@@ -232,7 +232,7 @@ def ensure_playable(path: Path) -> Path:
                 raise RuntimeError(f"No video encoder worked for '{path.name}'")
 
             # Execute full conversion with stats progress bar visible to user
-            print(f" -> Re-encoding video stream...")
+            print(" -> Re-encoding video stream...")
             subprocess.run(build_cmd(chosen_encoder), check=True)
 
         # Conversion succeeded: swap the original for the converted file.

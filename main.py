@@ -1,9 +1,14 @@
 from threading import Event
+from pathlib import Path
 
-from chromecast import get_chromecasts, select_chromecast, connect
-from server import run_server, get_local_ip, MOVIES_DIR
+import chromecast as cc
+from servers import media
+from servers import control
+from servers.utils import get_local_ip
 from movies import select_movie
 from transcode import ensure_library_playable
+
+MOVIES_DIR = Path("movies")
 
 
 def run():
@@ -14,15 +19,21 @@ def run():
     print("Checking if all movies are playable...")
     ensure_library_playable(MOVIES_DIR)
 
-    server = run_server()
+    # HTTP server that serves movies
+    media_server = media.run_server(MOVIES_DIR)
 
-    chromecasts = get_chromecasts()
-    cast = select_chromecast(chromecasts)
-    connect(cast)
+    # Find Chromecast device
+    chromecasts = cc.get_chromecasts()
+    cast = cc.select_chromecast(chromecasts)
+    cc.connect(cast)
 
-    media_controller = cast.media_controller
+    # Create controller
+    player = cc.ChromecastPlayer(cast)
 
-    # get movie to play
+    # Control server
+    control_server = control.run_control_server(player)
+
+    # select movie
     movie = select_movie(MOVIES_DIR)
 
     # NOTE: if you have problems, check this url in your browser to see if it
@@ -30,41 +41,31 @@ def run():
     url = f"http://{ip}:8000/{movie.relative_to(MOVIES_DIR)}"
     print(f"URL to Chromecast: {url}")
 
-    class StatusPrinter:
-        def new_media_status(self, status):
-            print(
-                f"[chromecast] player_state={status.player_state} "
-                f"idle_reason={status.idle_reason} "
-                f"content_id={status.content_id}"
-            )
+    cc.set_listener(cast)
 
-    media_controller.register_status_listener(StatusPrinter())
+    # NOTE: In future, media could be different! (audio, images, etc)
+    player.play_media(url, "video/mp4")
+    player.block_until_active()
 
-    media_controller.play_media(url, "video/mp4")
+    print(f"Status of player: {player.get_status()}")
 
-    try:
-        media_controller.block_until_active(timeout=15)
-    except Exception as exc:
-        print(f"Chromecast didn´t confirm status: {exc}")
-
-    print(f"Status of player: {media_controller.status.player_state}")
-    idle_reason = media_controller.status.idle_reason
-    if idle_reason:
-        print(f"Idle reason: {idle_reason}")
-
-    media_controller.play()
+    player.play()
 
     print("Reproducing...")
 
     try:
         Event().wait()
-    except KeyboardInterrupt:
-        server.shutdown()
 
-    cast.quit_app()
-    cast.disconnect()
+    except KeyboardInterrupt:
+        print("Stopping...")
+
+    finally:
+        media_server.shutdown()
+        cast.quit_app()
+        cast.disconnect()
 
     print("Exiting...")
 
 
-run()
+if __name__ == "__main__":
+    run()

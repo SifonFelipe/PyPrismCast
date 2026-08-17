@@ -1,24 +1,11 @@
 import os
-import socket
 
 from functools import partial
-from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
+from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from threading import Thread
 
-MOVIES_DIR = Path("movies")
-
 CHUNK_SIZE = 64 * 1024
-
-
-def get_local_ip():
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
-    try:
-        sock.connect(("8.8.8.8", 80))
-        return sock.getsockname()[0]
-    finally:
-        sock.close()
 
 
 class RangeRequestHandler(SimpleHTTPRequestHandler):
@@ -101,13 +88,13 @@ class RangeRequestHandler(SimpleHTTPRequestHandler):
         """ Explicit log of each request
         File name, status, if included range
         """
-        print(f"[server] {self.address_string()} -> {format % args}")
+        print(f"[media] {self.address_string()} -> {format % args}")
 
 
-def run_server(port: int = 8000):
+def run_server(movies_dir: Path, port: int = 8000):
     handler = partial(
         RangeRequestHandler,
-        directory=str(MOVIES_DIR)
+        directory=str(movies_dir)
     )
 
     server = ThreadingHTTPServer(("0.0.0.0", port), handler)
@@ -119,5 +106,5 @@ def run_server(port: int = 8000):
 
     thread.start()
 
-    print("Server started on port ", port)
+    print(f"[media] Server started on port {port}")
     return server
