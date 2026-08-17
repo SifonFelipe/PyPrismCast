@@ -1,11 +1,7 @@
 import asyncio
 import json
-
 from queue import Queue
-
 from threading import Thread
-from hypercorn.asyncio import serve
-from hypercorn.config import Config
 
 from quart import Quart, jsonify, render_template, websocket
 
@@ -15,7 +11,12 @@ from chromecast.player import ChromecastPlayer
 class ControlServer:
     def __init__(self, player: ChromecastPlayer, webdir):
         self.player = player
+
+        # pychromecast -> ControlServer
         self.status_queue = Queue()
+
+        # WebSocket -> asyncio.Queue individual
+        self.clients: dict[object, asyncio.Queue] = {}
 
         self.app = Quart(
             __name__,
@@ -25,10 +26,16 @@ class ControlServer:
 
         self._setup_routes()
 
+        @self.app.before_serving
+        async def startup():
+            self._broadcast_task = asyncio.create_task(self._broadcast_loop())
+
     def on_player_status(self, status):
+        """ Called from pychromecast's thread """
         self.status_queue.put(status)
 
     def _setup_routes(self):
+
         @self.app.get("/")
         async def index():
             return await render_template("index.html")
@@ -39,11 +46,61 @@ class ControlServer:
 
         @self.app.websocket("/ws")
         async def websocket_handler():
-            while True:
-                message = await websocket.receive()
-                await self.handle_command(message)
+            ws = websocket._get_current_object()
+            print(f"[control] New WebSocket connection: {id(websocket)}")
 
-    async def handle_command(self, raw_message: str):
+            queue = asyncio.Queue()
+            self.clients[ws] = queue
+
+            try:
+                # Send the initial status to the client
+                await ws.send(
+                    json.dumps({
+                        "type": "status",
+                        **self.player.status
+                    })
+                )
+
+                receiver = asyncio.create_task(self._receive_commands(ws))
+                sender = asyncio.create_task(self._send_events(ws, queue))
+
+                done, pending = await asyncio.wait(
+                    [receiver, sender],
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+
+                for task in pending:
+                    task.cancel()
+            except Exception as exc:
+                print(f"[control] WebSocket connection error: {exc}")
+
+            finally:
+                self.clients.pop(ws, None)
+                print(f"[control] WebSocket connection closed: {id(websocket)}")
+
+    async def _receive_commands(self, ws):
+        while True:
+            raw_message = await ws.receive()
+            print(f"[control] Received: {raw_message}")
+            await self.handle_command(raw_message)
+
+    async def _send_events(self, ws, queue):
+        while True:
+            message = await queue.get()
+            await ws.send(json.dumps(message))
+
+    async def _broadcast_loop(self):
+        while True:
+            status = await asyncio.to_thread(self.status_queue.get)
+            message = {
+                "type": "status",
+                **status
+            }
+
+            for queue in list(self.clients.values()):
+                await queue.put(message)
+
+    async def handle_command(self, raw_message):
         message = json.loads(raw_message)
         command = message.get("type")
 
@@ -68,10 +125,12 @@ class ControlServer:
             case "volume_down":
                 decrement = message.get("decrement", 0.1)
                 self.player.volume_down(decrement)
+            case _:
+                print(f"[control] Unknown command: {command}")
 
     def start(self, host="0.0.0.0", port=8001):
         thread = Thread(
-            target=self._run,
+            target=self.run,
             args=(host, port),
             daemon=True
         )
@@ -93,21 +152,3 @@ class ControlServer:
             debug=False,
             use_reloader=False,
         )
-        # asyncio.run(self._run_async(host, port))
-
-    async def _run_async(self, host: str, port: int):
-        self._shutdown_event = asyncio.Event()
-
-        config = Config()
-        config.bind = [f"{host}:{port}"]
-
-        await serve(
-            self.app,
-            config,
-            shutdown_trigger=self._shutdown_event.wait
-        )
-
-    def stop(self):
-        if self._shutdown_event is not None:
-            pass
-

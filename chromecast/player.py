@@ -118,8 +118,8 @@ class ChromecastPlayer:
 
         return {
             "state": status.player_state,
-            "current_time": status.current_time,
-            "duration": status.duration,
+            "current_time": status.current_time or 0,
+            "duration": status.duration or 0,
             "content_id": status.content_id,
-            "volume_level": status.volume_level,
+            "volume_level": self.cast.status.volume_level,
         }
