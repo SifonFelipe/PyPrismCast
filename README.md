@@ -17,12 +17,12 @@ plays it.
 ### Steps
 
 #### 1- Clone repo
-```
+```bash
 git clone https://github.com/SifonFelipe/PyPrismCast.git
 ```
 
 #### 2- Change directory and Syncronize venv
-```
+```bash
 cd PyPrismCast
 
 uv sync
@@ -31,7 +31,7 @@ uv sync
 ## Quick Start
 Move your movies to `movies/` folder. Then, run:
 
-```
+```bash
 uv run main.py
 ```
 
@@ -43,16 +43,15 @@ time, even more if they are long or many.
 ## Tip
 If you have many movies and want to format them all, just run:
 
-```
+```bash
 uv run transcode.py
 ```
 
 
-
 ## Vision
-1- Have an interface from where pause/play, go forward/backwards, select movie and control volume.
-2- Remote controller from mobile, connected to PC
-3- Be able to launch, control and play from mobile.
+1. Have an interface from where pause/play, go forward/backwards, select movie and control volume.
+2. Remote controller from mobile, connected to PC
+3. Be able to launch, control and play from mobile.
 
 
 
