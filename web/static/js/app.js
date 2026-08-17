@@ -1,47 +1,18 @@
-const stateElement =
-    document.getElementById("player-state");
+const stateElement = document.getElementById("player-state");
+const connectionElement = document.getElementById("connection-status");
+const currentTimeElement = document.getElementById("current-time");
+const durationElement = document.getElementById("duration");
+const movieTitleElement = document.getElementById("movie-title");
+const seekBar = document.getElementById("seek-bar");
+const playPauseButton = document.getElementById("play-pause");
+const backwardButton = document.getElementById("backward");
+const forwardButton = document.getElementById("forward");
+const stopButton = document.getElementById("stop");
+const volumeDownButton = document.getElementById("volume-down");
+const volumeUpButton = document.getElementById("volume-up");
+const volumeLevelElement = document.getElementById("volume-level");
 
-const connectionElement =
-    document.getElementById("connection-status");
-
-const currentTimeElement =
-    document.getElementById("current-time");
-
-const durationElement =
-    document.getElementById("duration");
-
-const movieTitleElement =
-    document.getElementById("movie-title");
-
-const seekBar =
-    document.getElementById("seek-bar");
-
-const playPauseButton =
-    document.getElementById("play-pause");
-
-const backwardButton =
-    document.getElementById("backward");
-
-const forwardButton =
-    document.getElementById("forward");
-
-const stopButton =
-    document.getElementById("stop");
-
-const volumeDownButton =
-    document.getElementById("volume-down");
-
-const volumeUpButton =
-    document.getElementById("volume-up");
-
-const volumeLevelElement =
-    document.getElementById("volume-level");
-
-
-/* =========================================================
- * State
- * ========================================================= */
-
+// === State ===
 let socket = null;
 
 let playerState = "IDLE";
@@ -49,58 +20,33 @@ let playerState = "IDLE";
 let currentPosition = 0;
 let duration = 0;
 
-/*
- * Timestamp of the last synchronization received
- * from Chromecast.
- */
+// Timestamp of the last synchronization received from Chromecast
 let lastSyncTime = 0;
 
 let isSeeking = false;
 
-
-/* =========================================================
- * WebSocket
- * ========================================================= */
-
+// === WebSocket ===
 function connect() {
 
-    const protocol =
-        window.location.protocol === "https:"
-            ? "wss:"
-            : "ws:";
+    const protocol = window.location.protocol === "https:" ? "wss:": "ws:";
 
-    socket = new WebSocket(
-        `${protocol}//${window.location.host}/ws`
-    );
-
+    socket = new WebSocket(`${protocol}//${window.location.host}/ws`);
 
     socket.addEventListener(
         "open",
         () => {
-
-            connectionElement.textContent =
-                "Connected";
-
-            console.log(
-                "[ws] Connected"
-            );
+            connectionElement.textContent = "Connected";
+            console.log("[ws] Connected");
         }
     );
-
 
     socket.addEventListener(
         "message",
         (event) => {
-
             try {
-
-                const message =
-                    JSON.parse(event.data);
-
+                const message = JSON.parse(event.data);
                 handleMessage(message);
-
             } catch (error) {
-
                 console.error(
                     "[ws] Invalid message:",
                     event.data,
@@ -110,548 +56,192 @@ function connect() {
         }
     );
 
-
     socket.addEventListener(
         "close",
         () => {
-
-            connectionElement.textContent =
-                "Disconnected";
-
-            console.log(
-                "[ws] Disconnected"
-            );
-
-            /*
-             * Try again after 2 seconds.
-             */
-            setTimeout(
-                connect,
-                2000
-            );
+            connectionElement.textContent = "Disconnected";
+            console.log("[ws] Disconnected");
+            // Try again after 2 seconds.
+            setTimeout(connect, 2000);
         }
     );
-
 
     socket.addEventListener(
         "error",
         (error) => {
-
-            console.error(
-                "[ws] Error:",
-                error
-            );
+            console.error("[ws] Error:", error);
         }
     );
 }
 
-
-/* =========================================================
- * Incoming messages
- * ========================================================= */
-
+// === Incoming messages ===
 function handleMessage(message) {
-
     switch (message.type) {
-
         case "status":
             updatePlayerStatus(message);
             break;
 
         default:
-            console.log(
-                "[ws] Unknown message:",
-                message
-            );
+            console.log("[ws] Unknown message:", message);
     }
 }
 
-
-/* =========================================================
- * Player status
- * ========================================================= */
-
+// === Player Status ===
 function updatePlayerStatus(status) {
+    playerState = status.state ?? "IDLE";
 
-    /*
-     * Player state
-     */
+    stateElement.textContent = playerState;
 
-    playerState =
-        status.state ?? "IDLE";
+    // Synchronize position with Chromecast.
+    // current_time is a snapshot. We use the timestamp below to continue the clock locally.
+    currentPosition = Number(status.current_time) || 0;
+    duration = Number(status.duration) || 0;
 
-    stateElement.textContent =
-        playerState;
+    lastSyncTime = performance.now();
 
+    // Duration
+    durationElement.textContent = formatTime(duration);
+    seekBar.max = duration;
 
-    /*
-     * Synchronize position with Chromecast.
-     *
-     * current_time is a snapshot. We use the timestamp
-     * below to continue the clock locally.
-     */
-
-    currentPosition =
-        Number(status.current_time) || 0;
-
-    duration =
-        Number(status.duration) || 0;
-
-    lastSyncTime =
-        performance.now();
-
-
-    /*
-     * Duration
-     */
-
-    durationElement.textContent =
-        formatTime(duration);
-
-    seekBar.max =
-        duration;
-
-
-    /*
-     * Position
-     *
-     * Don't overwrite the slider while the user is
-     * currently dragging it.
-     */
-
+    // === Position: Don't overwrite the slider while the user is dragging it ===
     if (!isSeeking) {
-
-        seekBar.value =
-            currentPosition;
-
-        currentTimeElement.textContent =
-            formatTime(currentPosition);
+        seekBar.value = currentPosition;
+        currentTimeElement.textContent = formatTime(currentPosition);
     }
 
-
-    /*
-     * Play / pause button
-     */
-
+    // === Play/Pause ===
     if (playerState === "PLAYING") {
-
-        playPauseButton.textContent =
-            "⏸";
-
+        playPauseButton.textContent = "⏸";
     } else {
-
-        playPauseButton.textContent =
-            "▶";
+        playPauseButton.textContent = "▶";
     }
 
-
-    /*
-     * Volume
-     */
-
-    const volume =
-        Number(status.volume_level);
+    // === Volume ===
+    const volume = Number(status.volume_level);
 
     if (Number.isFinite(volume)) {
-
         updateVolume(volume);
     }
 
-
-    /*
-     * Movie title
-     */
-
+    // === Movie title ===
     if (status.content_id) {
-
-        movieTitleElement.textContent =
-            getMovieName(
-                status.content_id
-            );
-
+        movieTitleElement.textContent = getMovieName(status.content_id);
     } else {
-
-        movieTitleElement.textContent =
-            "No media";
+        movieTitleElement.textContent = "No media";
     }
 }
 
-
-/* =========================================================
- * Local playback clock
- * ========================================================= */
-
-/*
- * This runs independently from Chromecast.
- *
- * Chromecast gives us:
- *
- *     current_time = 120.3
- *
- * Then the browser calculates:
- *
- *     121.3
- *     122.3
- *     123.3
- *
- * until the next Chromecast status synchronizes it again.
- */
-
+// === Local clock ===
 function updateClock() {
-
-    if (
-        playerState !== "PLAYING" ||
-        isSeeking
-    ) {
+    if (playerState !== "PLAYING" || isSeeking) {
         return;
     }
-
-
     if (duration <= 0) {
         return;
     }
+    const elapsed = (performance.now() - lastSyncTime) / 1000;
+    const position = Math.min(currentPosition + elapsed, duration);
 
-
-    const elapsed =
-        (
-            performance.now() -
-            lastSyncTime
-        ) / 1000;
-
-
-    const position =
-        Math.min(
-            currentPosition + elapsed,
-            duration
-        );
-
-
-    currentTimeElement.textContent =
-        formatTime(position);
-
-    seekBar.value =
-        position;
+    currentTimeElement.textContent = formatTime(position);
+    seekBar.value = position;
 }
 
+setInterval(updateClock, 250);  // update 4 times per second
 
-/*
- * Update four times per second.
- *
- * The displayed time is still in seconds, but the slider
- * looks much smoother than updating once per second.
- */
-
-setInterval(
-    updateClock,
-    250
-);
-
-
-/* =========================================================
- * Commands
- * ========================================================= */
-
-function sendCommand(
-    type,
-    data = {}
-) {
-
-    if (
-        !socket ||
-        socket.readyState !== WebSocket.OPEN
-    ) {
-
-        console.warn(
-            "[ws] Cannot send command: socket not connected"
-        );
-
+// === Commands ===
+function sendCommand(type, data = {}) {
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+        console.warn("[ws] Cannot send command: socket not connected");
         return;
     }
+    const message = {type, ...data,};
 
-
-    const message = {
-        type,
-        ...data,
-    };
-
-
-    console.log(
-        "[ws] Sending:",
-        message
-    );
-
-
-    socket.send(
-        JSON.stringify(message)
-    );
+    console.log("[ws] Sending:", message);
+    socket.send(JSON.stringify(message));
 }
 
+// === Play/Pause ===
+playPauseButton.addEventListener("click", () => {
+    sendCommand("toggle");
+});
 
-/* =========================================================
- * Play / Pause
- * ========================================================= */
-
-playPauseButton.addEventListener(
-    "click",
-    () => {
-
-        sendCommand("toggle");
-    }
-);
+// === Seek Relative ===
+backwardButton.addEventListener("click", () => {
+    sendCommand("seek_relative", {seconds: -10,});
+});
 
 
-/* =========================================================
- * Seek relative
- * ========================================================= */
+forwardButton.addEventListener("click", () => {
+    sendCommand("seek_relative", {seconds: 10,});
+});
 
-backwardButton.addEventListener(
-    "click",
-    () => {
+// === Seek Bar ===
+seekBar.addEventListener("pointerdown", () => {
+    isSeeking = true;
+});
 
-        sendCommand(
-            "seek_relative",
-            {
-                seconds: -10,
-            }
-        );
-    }
-);
-
-
-forwardButton.addEventListener(
-    "click",
-    () => {
-
-        sendCommand(
-            "seek_relative",
-            {
-                seconds: 10,
-            }
-        );
-    }
-);
-
-
-/* =========================================================
- * Seek bar
- * ========================================================= */
-
-/*
- * Start dragging.
- */
-
-seekBar.addEventListener(
-    "pointerdown",
-    () => {
-
-        isSeeking = true;
-    }
-);
-
-
-/*
- * Update the displayed time while dragging.
- */
-
-seekBar.addEventListener(
-    "input",
-    () => {
-
-        if (!isSeeking) {
-            return;
-        }
-
-
-        const position =
-            Number(seekBar.value);
-
-
-        currentTimeElement.textContent =
-            formatTime(position);
-    }
-);
-
-
-/*
- * Finish seeking.
- */
-
-seekBar.addEventListener(
-    "pointerup",
-    commitSeek
-);
-
-
-/*
- * `change` is useful as a fallback, especially on
- * browsers/mobile where pointer events can behave
- * differently.
- */
-
-seekBar.addEventListener(
-    "change",
-    commitSeek
-);
-
-
-function commitSeek() {
-
+// Update time while dragging
+seekBar.addEventListener("input", () => {
     if (!isSeeking) {
         return;
     }
 
+    const position = Number(seekBar.value);
+    currentTimeElement.textContent = formatTime(position);
+});
 
-    const position =
-        Number(seekBar.value);
+// seek
+seekBar.addEventListener("pointerup", commitSeek);
+seekBar.addEventListener("change",commitSeek);
 
+function commitSeek() {
+    if (!isSeeking) {
+        return;
+    }
+    const position = Number(seekBar.value);
+    currentPosition = position;
+    lastSyncTime = performance.now();
 
-    /*
-     * Immediately update our local clock.
-     */
-
-    currentPosition =
-        position;
-
-    lastSyncTime =
-        performance.now();
-
-
-    /*
-     * Tell Chromecast.
-     */
-
-    sendCommand(
-        "seek",
-        {
-            position,
-        }
-    );
-
-
+    // tell chromecast
+    sendCommand("seek", {position,});
     isSeeking = false;
 }
 
+// === Stop ===
+stopButton.addEventListener("click", () => {
+    sendCommand("stop");
+});
 
-/* =========================================================
- * Stop
- * ========================================================= */
+// === Volume ===
+volumeDownButton.addEventListener("click", () => {
+    sendCommand("volume_down", {decrement: 0.1,});
+});
 
-stopButton.addEventListener(
-    "click",
-    () => {
+volumeUpButton.addEventListener("click", () => {
+    sendCommand("volume_up", {increment: 0.1,});
+});
 
-        sendCommand("stop");
-    }
-);
-
-
-/* =========================================================
- * Volume
- * ========================================================= */
-
-volumeDownButton.addEventListener(
-    "click",
-    () => {
-
-        sendCommand(
-            "volume_down",
-            {
-                decrement: 0.1,
-            }
-        );
-    }
-);
-
-
-volumeUpButton.addEventListener(
-    "click",
-    () => {
-
-        sendCommand(
-            "volume_up",
-            {
-                increment: 0.1,
-            }
-        );
-    }
-);
-
-
-/*
- * Update volume UI.
- *
- * Chromecast uses:
- *
- *     0.0 = 0%
- *     0.5 = 50%
- *     1.0 = 100%
- */
-
+// Update volume UI.
 function updateVolume(volume) {
+    volume = Math.max(0, Math.min(1, volume));
+    const percentage = Math.round(volume * 100);
 
-    volume =
-        Math.max(
-            0,
-            Math.min(
-                1,
-                volume
-            )
-        );
-
-
-    const percentage =
-        Math.round(
-            volume * 100
-        );
-
-
-    volumeLevelElement.textContent =
-        `${percentage}%`;
+    volumeLevelElement.textContent = `${percentage}%`;
 }
 
-
-/* =========================================================
- * Helpers
- * ========================================================= */
-
+// === Utils ===
 function formatTime(seconds) {
-
-    if (
-        !Number.isFinite(seconds) ||
-        seconds < 0
-    ) {
+    if (!Number.isFinite(seconds) || seconds < 0) {
         return "00:00";
     }
 
+    seconds = Math.floor(seconds);
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
 
-    seconds =
-        Math.floor(seconds);
-
-
-    const hours =
-        Math.floor(
-            seconds / 3600
-        );
-
-
-    const minutes =
-        Math.floor(
-            (seconds % 3600) / 60
-        );
-
-
-    const remainingSeconds =
-        seconds % 60;
-
-
-    /*
-     * Videos longer than one hour:
-     *
-     *     1:02:35
-     */
+    const remainingSeconds = seconds % 60;
 
     if (hours > 0) {
-
         return (
             `${hours}:` +
             `${String(minutes).padStart(2, "0")}:` +
@@ -659,64 +249,24 @@ function formatTime(seconds) {
         );
     }
 
-
-    /*
-     * Normal videos:
-     *
-     *     02:35
-     */
-
     return (
         `${String(minutes).padStart(2, "0")}:` +
         `${String(remainingSeconds).padStart(2, "0")}`
     );
 }
 
-
-/*
- * Extract the filename from the media URL.
- *
- * Example:
- *
- * http://192.168.1.50:8000/movies/movie.mkv
- *
- * becomes:
- *
- * movie.mkv
- */
-
+// get movie name from URL
 function getMovieName(contentId) {
-
     try {
+        const url = new URL(contentId);
+        const pathname = decodeURIComponent(url.pathname);
+        const filename = pathname.split("/").pop();
 
-        const url =
-            new URL(contentId);
-
-
-        const pathname =
-            decodeURIComponent(
-                url.pathname
-            );
-
-
-        const filename =
-            pathname
-                .split("/")
-                .pop();
-
-
-        return filename ||
-            "Unknown media";
-
+        return filename ||"Unknown media";
     } catch {
-
         return contentId;
     }
 }
 
-
-/* =========================================================
- * Start
- * ========================================================= */
-
+// Start
 connect();
