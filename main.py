@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 
 import chromecast as cc
@@ -49,8 +50,20 @@ def run():
 
     # === Play ===
     # NOTE: In future, media could be different! (audio, images, etc)
-    player.play_media(url, "video/mp4")
+    player.play_media(
+        url=url,
+        content_type="video/mp4",
+        subtitle_url=f"http://{ip}:8000/wh40k_secret_level.eng.vtt",
+    )
     player.block_until_active(timeout=15)
+
+    for _ in range(20):
+        player.mc.update_status()
+        if player.mc.status.media_session_id is not None:
+            break
+        time.sleep(0.5)
+
+    player.mc.enable_subtitle(1)
 
     player.play()
 

@@ -54,8 +54,15 @@ class ChromecastPlayer:
         for listener in self._listeners:
             listener(data)
 
-    def play_media(self, url, content_type):
-        self.mc.play_media(url, content_type)
+    def play_media(self, url, content_type, subtitle_url=None):
+        self.mc.play_media(
+            url,
+            content_type=content_type,
+            subtitles=subtitle_url,
+            subtitles_lang="en",
+            subtitles_mime="text/vtt",
+            current_time=0,
+        )
 
     def block_until_active(self, timeout=15):
         try:
