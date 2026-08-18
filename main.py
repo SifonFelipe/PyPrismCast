@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+
+import argparse
 import time
 from pathlib import Path
 
@@ -19,6 +22,33 @@ WEB_DIR = BASE_DIR / "web"
 MEDIA_PORT = 8000
 CONTROL_PORT = 8001
 HOST = "0.0.0.0"
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description=("Chromecast local movie player with web control.")
+    )
+
+    subparsers = parser.add_subparsers(
+        dest="command",
+        required=True,
+        help="Sub-command to run. Use 'help <command>' for more information.",
+    )
+
+    # Sub-command: transcode
+    parser_transcode = subparsers.add_parser(
+        "transcode",
+        help=(
+            "Transcode movie/s to playable format "
+            "(h264 video, aac audio, mp4 container)."
+        )
+    )
+    parser_transcode.add_argument(
+        "path",
+        type=str,
+        help="Path to movie file or directory containing movies.",
+    )
+    parser_transcode
 
 
 def run():
