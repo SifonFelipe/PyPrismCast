@@ -5,7 +5,7 @@ from threading import Thread
 
 from quart import Quart, jsonify, render_template, websocket
 
-from chromecast.player import ChromecastPlayer
+from pyprismcast.chromecast.player import ChromecastPlayer
 
 
 class ControlServer:

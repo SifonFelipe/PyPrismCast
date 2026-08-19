@@ -4,16 +4,16 @@ import argparse
 import time
 from pathlib import Path
 
-import chromecast as cc
+import pyprismcast.chromecast as cc
 
-from servers import media
-from servers import control
-from servers.utils import get_local_ip
+from pyprismcast.servers import media
+from pyprismcast.servers import control
+from pyprismcast.servers.utils import get_local_ip
 
-from movies import select_movie
+from pyprismcast.movies import select_movie
 
-from transcode import video
-from transcode import subtitles
+from pyprismcast.transcode import video
+from pyprismcast.transcode import subtitles
 
 BASE_DIR = Path(__file__).resolve().parent
 MOVIES_DIR = BASE_DIR / "movies"
@@ -26,29 +26,55 @@ HOST = "0.0.0.0"
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description=("Chromecast local movie player with web control.")
+        prog="prismcast",
+        description="Chromecast local movie player with web control.",
     )
 
     subparsers = parser.add_subparsers(
         dest="command",
         required=True,
-        help="Sub-command to run. Use 'help <command>' for more information.",
+        help="Command to run.",
     )
 
-    # Sub-command: transcode
+    # --- Sub-command: transcode ---
     parser_transcode = subparsers.add_parser(
         "transcode",
         help=(
-            "Transcode movie/s to playable format "
-            "(h264 video, aac audio, mp4 container)."
-        )
+            "Transcode movie/s to playable format (h264 video, aac audio, mp4 container). "
+            "Also generates subtitles in vtt format if the movie contains some. "
+            "This command also supports subtitles!"
+        ),
     )
     parser_transcode.add_argument(
         "path",
         type=str,
+        help="Path to movie file or directory containing movies/subs.",
+    )
+
+    # --- Sub-command: cast ---
+    parser_cast = subparsers.add_parser(
+        "cast",
+        help="Cast a movie to Chromecast and control it via web interface.",
+    )
+    parser_cast.add_argument(
+        "path",
+        type=str,
         help="Path to movie file or directory containing movies.",
     )
-    parser_transcode
+    parser_cast.add_argument(
+        "-s",
+        "--subtitles",
+        type=str,
+        help="Path to subtitle file (vtt format).",
+    )
+    parser_cast.add_argument(
+        "-d",
+        "--device",
+        type=str,
+        help="Name of the Chromecast device to cast to.",
+    )
+
+    return parser.parse_args()
 
 
 def run():
@@ -117,6 +143,11 @@ def run():
         cast.disconnect()
 
     print("Exiting...")
+
+
+def main():
+    # TODO: implement subcommands for transcoding and casting
+    run()
 
 
 if __name__ == "__main__":

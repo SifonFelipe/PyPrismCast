@@ -7,7 +7,7 @@ Chromecast only supports natively the following formats:
 See transcode.py for more details. Here we assume it is ready to be casted
 """
 
-from transcode.video import VIDEO_EXTENSIONS
+from pyprismcast.transcode.video import VIDEO_EXTENSIONS
 
 
 def select_movie(movies_dir):

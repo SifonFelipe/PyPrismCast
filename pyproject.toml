@@ -1,7 +1,10 @@
+[build-system]
+requires = ["setuptools>=65.5.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
-name = "pycast"
+name = "pyprismcast"
 version = "0.1.0"
-description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -10,3 +13,9 @@ dependencies = [
     "pychromecast>=14.0.10",
     "quart>=0.21.0",
 ]
+
+[project.scripts]
+prismcast = "pyprismcast.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]

@@ -13,40 +13,59 @@ plays it.
 - Python 3.12 or higher
 - [FFmpeg](https://ffmpeg.org/) installed and available in your system path (required for video transcoding).
 - *[uv](https://docs.astral.sh/uv/)* for venv
+- `pipx` for installing script at machine level (available from any location in your pc)
 
 ### Steps
 
-#### 1- Clone repo
+#### 1- Clone repo and Go in
+
 ```bash
 git clone https://github.com/SifonFelipe/PyPrismCast.git
-```
 
-#### 2- Change directory and Syncronize venv
-```bash
 cd PyPrismCast
-
-uv sync
 ```
 
-## Quick Start
-Move your movies to `movies/` folder. Then, run:
+#### 2- Install
+To install it at machine level, we are going to use `pipx`
 
 ```bash
-uv run main.py
+pipx install -e .
 ```
 
-
-It will format the movies to a format that the Chromecast will accept. This step will take some
-time, even more if they are long or many.
+#### 3- Cast your videos!
 
 
-## Tip
-If you have many movies and want to format them all, just run:
+## Usage
+
+### Format your videos
+Chromecast only accepts one format of file to cast (`.mp4` container, `aac` audio, `h264` video).
+So, first you will have to format them. `pyprismcast` has a command to do that:
 
 ```bash
-uv run transcode.py
+prismcast transcode path/to/movies/
+```
+or just one file:
+```bash
+prismcast transcode path/to/movie.mp4
 ```
 
+### Format your subtitles
+Chromecast also allows only one type of subtitle file (`.vtt`).
+`pyprismcast` does not have the command implemented yet but translates them to a .vtt format.
+
+
+### Cast your video
+To cast a video formatted to chromecast-playable, you just have to run:
+
+```bash
+prismcast cast video.mp4
+
+# with subtitles:
+prismcast cast video.mp4 -s "subs_en.vtt"
+
+# preselect chromecast device:
+prismcast cast video.mp4 -d "LivingRoom"
+```
 
 ## Vision
 1. Have an interface from where pause/play, go forward/backwards, select movie and control volume.
