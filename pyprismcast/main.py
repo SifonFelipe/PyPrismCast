@@ -5,14 +5,6 @@ from pathlib import Path
 
 from pyprismcast import handlers
 
-BASE_DIR = Path(__file__).resolve().parent
-MOVIES_DIR = BASE_DIR / "movies"
-WEB_DIR = BASE_DIR / "web"
-
-MEDIA_PORT = 8000
-CONTROL_PORT = 8001
-HOST = "0.0.0.0"
-
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -45,6 +37,12 @@ def parse_args():
         "--recursive",
         action="store_true",
         help="Recursively transcode movies in subdirectories.",
+    )
+    parser_transcode.add_argument(
+        "-s",
+        "--subtitles",
+        action="store_true",
+        help="Transcode path subtitle/s to vtt format.",
     )
 
     # --- Sub-command: cast ---

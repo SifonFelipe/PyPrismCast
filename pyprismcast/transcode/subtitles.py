@@ -18,6 +18,33 @@ def convert_srt_to_vtt(srt_path, vtt_path):
     with open(vtt_path, 'w', encoding='utf-8') as f:
         f.write(vtt_content)
 
+    srt_path.unlink()  # delete the original .srt file
+
+
+def ensure_subtitles_playable(subs_dir: Path, recursive=False):
+    """
+    Ensure all subtitle streams are playable by
+    converting them to WebVTT.
+    """
+    paths = subs_dir.rglob("*.srt") if recursive else subs_dir.glob("*.srt")
+
+    subs = [
+        s for s in paths
+        if s.is_file() and s.suffix.lower() == ".srt"
+        and not s.name.startswith(".")
+    ]
+
+    if not subs:
+        print(" -> No subtitle files found.")
+        return
+
+    for sub in subs:
+        vtt_path = sub.with_suffix(".vtt")
+        print(f" -> Converting subtitle: {sub.name} -> {vtt_path.name}")
+        convert_srt_to_vtt(sub, vtt_path)
+
+    print(" -> Subtitle conversion complete.")
+
 
 def probe_subtitles(path: Path) -> list[dict]:
     """Returns information about subtitle streams."""
