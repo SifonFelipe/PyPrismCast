@@ -10,7 +10,7 @@ See transcode.py for more details. Here we assume it is ready to be casted
 from pyprismcast.transcode.video import VIDEO_EXTENSIONS
 
 
-def select_movie(movies_dir):
+def select_movie(movies_dir, default_movie=None):
     """
     Prompt the user to select a movie from the available movies in the specified directory.
     """
@@ -21,6 +21,18 @@ def select_movie(movies_dir):
 
     if not movies:
         raise SystemExit("No movies found in the specified directory.")
+
+    if default_movie:
+        for movie in movies:
+            if movie.name == default_movie:
+                print(f"Automatically selecting movie: {movie.name}")
+                return movie
+
+        raise SystemExit(
+            f"Default movie '{default_movie}' not found. "
+            f"Found instead: {[movie.name for movie in movies]}"
+        )
+
 
     while True:
         print("Available movies:")

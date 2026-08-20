@@ -15,6 +15,8 @@ from pyprismcast.movies import select_movie
 from pyprismcast.transcode import video
 from pyprismcast.transcode import subtitles
 
+from pyprismcast import handlers
+
 BASE_DIR = Path(__file__).resolve().parent
 MOVIES_DIR = BASE_DIR / "movies"
 WEB_DIR = BASE_DIR / "web"
@@ -47,7 +49,7 @@ def parse_args():
     )
     parser_transcode.add_argument(
         "path",
-        type=str,
+        type=lambda p: Path(p).resolve(),
         help="Path to movie file or directory containing movies/subs.",
     )
 
@@ -58,7 +60,7 @@ def parse_args():
     )
     parser_cast.add_argument(
         "path",
-        type=str,
+        type=lambda p: Path(p).resolve(),
         help="Path to movie file or directory containing movies.",
     )
     parser_cast.add_argument(
@@ -147,7 +149,19 @@ def run():
 
 def main():
     # TODO: implement subcommands for transcoding and casting
-    run()
+
+    args = parse_args()
+
+    command = args.command
+
+    if command == "cast":
+        handlers.cast(args)
+
+    print(command)
+    print(command)
+    print(args)
+    print(args.__dict__)
+
 
 
 if __name__ == "__main__":

@@ -1,4 +1,5 @@
 import pychromecast
+from pyprismcast.errors import ChromecastNotFoundError
 
 
 def get_chromecasts():
@@ -7,18 +8,28 @@ def get_chromecasts():
     """
     chromecasts, browser = pychromecast.get_chromecasts()
 
-    if not chromecasts:
-        raise SystemExit("Exiting due to no available Chromecast devices.")
-
-    print(f"Found chromecast devices: {len(chromecasts)}")
+    if chromecasts:
+        print(f"Found chromecast devices: {len(chromecasts)}")
     return chromecasts
 
 
-def select_chromecast(chromecasts):
+def select_chromecast(chromecasts, default_device=None):
     """
     Prompt the user to select a Chromecast device from the list of available devices.
+    If a default device name is provided, it will be selected automatically if found.
     """
     casts = {idx: cast for idx, cast in enumerate(chromecasts)}
+
+    if default_device:
+        for cast in chromecasts:
+            if cast.name == default_device:
+                print(f"Automatically selecting Chromecast: {cast.name}")
+                return cast
+
+        raise ChromecastNotFoundError(
+            f"Default device '{default_device}' not found. "
+            f"Found instead: {[cast.name for cast in chromecasts]}"
+        )
 
     if len(casts) == 1:
         print(f"Only one Chromecast device found: {casts[0].name}. Automatically selecting it.")
