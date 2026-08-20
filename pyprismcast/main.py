@@ -1,19 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
-import time
 from pathlib import Path
-
-import pyprismcast.chromecast as cc
-
-from pyprismcast.servers import media
-from pyprismcast.servers import control
-from pyprismcast.servers.utils import get_local_ip
-
-from pyprismcast.movies import select_movie
-
-from pyprismcast.transcode import video
-from pyprismcast.transcode import subtitles
 
 from pyprismcast import handlers
 
@@ -52,6 +40,12 @@ def parse_args():
         type=lambda p: Path(p).resolve(),
         help="Path to movie file or directory containing movies/subs.",
     )
+    parser_transcode.add_argument(
+        "-R",
+        "--recursive",
+        action="store_true",
+        help="Recursively transcode movies in subdirectories.",
+    )
 
     # --- Sub-command: cast ---
     parser_cast = subparsers.add_parser(
@@ -80,8 +74,6 @@ def parse_args():
 
 
 def main():
-    # TODO: implement subcommands for transcoding and casting
-
     args = parse_args()
 
     command = args.command

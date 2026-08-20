@@ -41,7 +41,9 @@ def probe_video(path: Path) -> tuple[str, str, int, int]:
 
 
 def probe_audio(path: Path) -> tuple[str, int]:
-    """Returns (audio_codec, channel_count) of the first audio stream."""
+    """
+    Returns (audio_codec, channel_count) of the first audio stream.
+    """
     cmd = [
         "ffprobe", "-v", "error",
         "-select_streams", "a:0",
@@ -69,7 +71,9 @@ MAX_COMPATIBLE_HEIGHT = 1080
 
 
 def is_compatible(path: Path) -> bool:
-    """True if file is MP4 + H.264 8-bit + AAC stereo/mono, at <=1080p."""
+    """
+    True if file is MP4 + H.264 8-bit + AAC stereo/mono, at <=1080p.
+    """
     if path.suffix.lower() != ".mp4":
         return False
 
@@ -258,10 +262,15 @@ def ensure_playable(path: Path) -> Path:
     return target
 
 
-def ensure_library_playable(movies_dir: Path) -> None:
-    # Explicitly filter out leftover temp files and check for video extensions
+def ensure_library_playable(movies_dir: Path, recursive=False) -> None:
+    """
+    Makes sure all files of Path are reproducible by Chromecast.
+    """
+    # Do recursive or non-recursive search
+    paths = movies_dir.rglob("*") if recursive else movies_dir.iterdir()
+
     movies = [
-        p for p in movies_dir.iterdir()
+        p for p in paths
         if p.is_file()
         and p.suffix.lower() in VIDEO_EXTENSIONS
         and not p.name.startswith(".")

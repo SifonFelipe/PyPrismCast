@@ -14,5 +14,5 @@ def transcode(args):
 
     elif path.is_dir():
         print(f"Transcoding directory: {path}")
-        video.ensure_library_playable(path)
+        video.ensure_library_playable(path, recursive=args.recursive)
 

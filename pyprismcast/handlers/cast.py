@@ -2,10 +2,11 @@
 Handles
 prismcast cast requests.
 """
-from pathlib import Path
+import asyncio
+from threading import Event
 
 from pyprismcast import chromecast as cc
-from pyprismcast.errors import ChromecastNotFoundError
+from pyprismcast.errors import ChromecastNotFoundError, IncompatibleVideoError
 from pyprismcast.servers import media, control
 from pyprismcast.servers.utils import get_local_ip
 from pyprismcast.transcode import video
@@ -23,6 +24,7 @@ def cast(args):
     # TODO: arg to say if not formatted correctly, transcode it automatically
     if not video.is_compatible(file):
         print(f"File {file} is not compatible.")
+        raise IncompatibleVideoError(f"File {file} is not compatible with Chromecast.")
 
     media_server = media.run_server(file.parent)
 
@@ -72,20 +74,43 @@ def cast(args):
 
     print(f"Playing on Chromecast '{cast.cast_info.friendly_name}'")
 
-    control_server = control.ControlServer(player, webdir=WEB_DIR)
+    shutdown_event = Event()
+
+    control_server = control.ControlServer(
+        player,
+        webdir=WEB_DIR,
+        shutdown_event=shutdown_event
+    )
+
     player.add_listener(control_server.on_player_status)
 
     print(f"Control UI: http://{ip}:{CONTROL_PORT}")
 
     try:
-        control_server.run(host=HOST, port=CONTROL_PORT)
+        asyncio.run(
+            control_server.run(
+                host=HOST,
+                port=CONTROL_PORT
+            )
+        )
 
     except KeyboardInterrupt:
-        print("Stopping...")
+        print("\nStopping...")
 
     finally:
+        print("[main] Shutting down servers and connections...")
+
         media_server.shutdown()
-        cast.quit_app()
-        cast.disconnect()
+
+        try:
+            player.stop()
+        except Exception:
+            pass
+
+        try:
+            cast.quit_app()
+            cast.disconnect()
+        except Exception:
+            pass
 
     print("Exiting...")

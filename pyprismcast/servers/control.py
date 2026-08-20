@@ -3,14 +3,17 @@ import json
 from queue import Queue
 from threading import Thread
 
+from hypercorn.asyncio import serve
+from hypercorn.config import Config
 from quart import Quart, jsonify, render_template, websocket
 
 from pyprismcast.chromecast.player import ChromecastPlayer
 
 
 class ControlServer:
-    def __init__(self, player: ChromecastPlayer, webdir):
+    def __init__(self, player: ChromecastPlayer, webdir, shutdown_event):
         self.player = player
+        self.shutdown_event = shutdown_event
 
         # pychromecast -> ControlServer
         self.status_queue = Queue()
@@ -29,6 +32,16 @@ class ControlServer:
         @self.app.before_serving
         async def startup():
             self._broadcast_task = asyncio.create_task(self._broadcast_loop())
+
+        @self.app.after_serving
+        async def shutdown():
+            self._broadcast_task.cancel()
+
+            try:
+                await self._broadcast_task
+            except asyncio.CancelledError:
+                pass
+
 
     def on_player_status(self, status):
         """ Called from pychromecast's thread """
@@ -119,6 +132,7 @@ class ControlServer:
                 self.player.seek(position)
             case "stop":
                 self.player.stop()
+                self.shutdown_event.set()
             case "volume_up":
                 increment = message.get("increment", 0.1)
                 self.player.volume_up(increment)
@@ -128,27 +142,12 @@ class ControlServer:
             case _:
                 print(f"[control] Unknown command: {command}")
 
-    def start(self, host="0.0.0.0", port=8001):
-        thread = Thread(
-            target=self.run,
-            args=(host, port),
-            daemon=True
-        )
+    async def run(self, host="0.0.0.0", port=8001):
+        config = Config()
 
-        thread.start()
+        config.bind = [f"{host}:{port}"]
 
-        print(f"[control] Server started on port {port}")
+        await serve(self.app, config=config, shutdown_trigger=self._shutdown_trigger)
 
-        return thread
-
-    def run(
-        self,
-        host: str = "0.0.0.0",
-        port: int = 8001,
-    ):
-        self.app.run(
-            host=host,
-            port=port,
-            debug=False,
-            use_reloader=False,
-        )
+    async def _shutdown_trigger(self):
+        await asyncio.to_thread(self.shutdown_event.wait)

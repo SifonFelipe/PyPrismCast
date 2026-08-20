@@ -10,9 +10,9 @@ plays it.
 
 ### Prerequisites
 
-- Python 3.12 or higher
+- Python 3.10 or higher
 - [FFmpeg](https://ffmpeg.org/) installed and available in your system path (required for video transcoding).
-- *[uv](https://docs.astral.sh/uv/)* for venv
+- *[uv](https://docs.astral.sh/uv/)* for **dev**
 - `pipx` for installing script at machine level (available from any location in your pc)
 
 ### Steps
@@ -42,7 +42,7 @@ Chromecast only accepts one format of file to cast (`.mp4` container, `aac` audi
 So, first you will have to format them. `pyprismcast` has a command to do that:
 
 ```bash
-prismcast transcode path/to/movies/
+prismcast transcode -R path/to/movies/
 ```
 or just one file:
 ```bash
