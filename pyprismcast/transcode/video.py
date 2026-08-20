@@ -6,7 +6,7 @@ from pathlib import Path
 
 from .subtitles import extract_subtitles
 
-# Codecs that the Default Media Receiver of Chromecast can play natively.
+# Codecs that the Default Media Receiver of Chromecast can play natively
 COMPATIBLE_VIDEO_CODECS = {"h264"}
 COMPATIBLE_AUDIO_CODECS = {"aac"}
 
@@ -15,10 +15,10 @@ VIDEO_EXTENSIONS = {".mp4", ".mkv", ".avi", ".mov", ".flv", ".webm", ".m4v"}
 
 
 def probe_video(path: Path) -> tuple[str, str, int, int]:
-    """Returns (video_codec, pix_fmt, width, height) of the first video stream."""
-    # NOTE: ffprobe's csv output does NOT preserve the field order given
-    # in -show_entries (it uses its own internal order), so this parses
-    # JSON and reads fields by name instead of by position.
+    """
+    Returns (video_codec, pix_fmt, width, height)
+    of the first video stream.
+    """
     cmd = [
         "ffprobe", "-v", "error",
         "-select_streams", "v:0",
@@ -64,9 +64,7 @@ COMPATIBLE_PIX_FMTS = {"yuv420p"}
 # If more channels (5.1, 7.1) are detected, the audio will be downmixed to stereo
 MAX_COMPATIBLE_CHANNELS = 2
 
-# Regular (non-Ultra) Chromecasts top out at 1080p. Anything taller than
-# this gets scaled down, which also makes encoding roughly 4x faster for
-# 4K sources since there are far fewer pixels to process.
+# Regular (non-Ultra) Chromecasts top out at 1080p.
 MAX_COMPATIBLE_HEIGHT = 1080
 
 
@@ -274,6 +272,7 @@ def ensure_library_playable(movies_dir: Path) -> None:
         return
 
     print(f"Found {len(movies)} videos to review.")
+
     for movie in movies:
         try:
             ensure_playable(movie)

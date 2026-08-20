@@ -1,4 +1,13 @@
 import socket
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+MOVIES_DIR = BASE_DIR / "movies"
+WEB_DIR = BASE_DIR / "web"
+
+MEDIA_PORT = 8000
+CONTROL_PORT = 8001
+HOST = "0.0.0.0"
 
 
 def get_local_ip():

@@ -1,5 +1,6 @@
 import os
 
+from urllib.parse import unquote, urlparse
 from functools import partial
 from pathlib import Path
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
@@ -15,18 +16,31 @@ class RangeRequestHandler(SimpleHTTPRequestHandler):
     for Chromecast playback.
     """
 
+    def _is_root_file(self):
+        """
+        Allow /movie.mp4 but not /more_movies/movie.mp4
+        """
+        path = unquote(urlparse(self.path).path).lstrip("/")
+        return "/" not in path and "\\" not in path
+
     def send_head(self):
+        if not self._is_root_file():
+            self.send_error(403, "Forbidden: Access to this resource is denied.")
+            return None
+
         path = self.translate_path(self.path)
 
         if not os.path.isfile(path):
             return super().send_head()
 
         range_header = self.headers.get("Range")
+
         if not range_header:
             self._range = None
             return super().send_head()
 
         file_size = os.path.getsize(path)
+
         try:
             start, end = self._parse_range(range_header, file_size)
         except ValueError:

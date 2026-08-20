@@ -70,6 +70,14 @@ class ChromecastPlayer:
         except Exception as exc:
             print(f"Chromecast didn´t confirm status: {exc}")
 
+    def wait_for_subtitles(self, timeout=20):
+        for _ in range(timeout):
+            self.mc.update_status()
+            if self.mc.status.media_session_id is not None:
+                break
+
+        self.mc.enable_subtitle(1)
+
     def get_status(self):
         status = self.cast.media_controller.status
         return {
