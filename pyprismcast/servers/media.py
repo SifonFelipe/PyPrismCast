@@ -106,20 +106,25 @@ class RangeRequestHandler(SimpleHTTPRequestHandler):
         print(f"[media] {self.address_string()} -> {format % args}")
 
 
-def run_server(movies_dir: Path, port: int = 8000):
-    handler = partial(
-        RangeRequestHandler,
-        directory=str(movies_dir)
-    )
+class MediaServer:
+    def __init__(self, movies_dir, port=8000):
+        self.movies_dir = Path(movies_dir)
+        self.port = port
+        self.server = None
 
-    server = ThreadingHTTPServer(("0.0.0.0", port), handler)
+    def start(self):
+        handler = partial(
+            RangeRequestHandler,
+            directory=str(self.movies_dir)
+        )
 
-    thread = Thread(
-        target=server.serve_forever,
-        daemon=True
-    )
+        server = ThreadingHTTPServer(("0.0.0.0", self.port), handler)
 
-    thread.start()
+        self.thread = Thread(
+            target=server.serve_forever,
+            daemon=True
+        )
 
-    print(f"[media] Server started on port {port}")
-    return server
+        self.thread.start()
+
+        print(f"[media] Server started on port {port}")

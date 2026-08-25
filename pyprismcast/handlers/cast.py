@@ -26,7 +26,7 @@ def cast(args):
         print(f"File {file} is not compatible.")
         raise IncompatibleVideoError(f"File {file} is not compatible with Chromecast.")
 
-    media_server = media.run_server(file.parent)
+    media_server = media.MediaServer(file.parent)  # file.parent = dir parent
 
     # === Conection to Chromecast ===
     default_device = args.device
