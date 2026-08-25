@@ -1,13 +1,16 @@
 import asyncio
 import json
 from queue import Queue
-from threading import Thread
+from pathlib import Path
 
 from hypercorn.asyncio import serve
 from hypercorn.config import Config
 from quart import Quart, jsonify, render_template, websocket
 
 from pyprismcast.chromecast.player import ChromecastPlayer
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+WEB_DIR = BASE_DIR / "web"
 
 
 class ControlServer:
@@ -19,7 +22,8 @@ class ControlServer:
         self.status_queue = Queue()
 
         # WebSocket -> asyncio.Queue individual
-        self.clients: dict[object, asyncio.Queue] = {}
+        # Set of asyncio.Queue's
+        self.clients = set()
 
         self.app = Quart(
             __name__,
@@ -42,7 +46,6 @@ class ControlServer:
             except asyncio.CancelledError:
                 pass
 
-
     def on_player_status(self, status):
         """ Called from pychromecast's thread """
         self.status_queue.put(status)
@@ -60,10 +63,10 @@ class ControlServer:
         @self.app.websocket("/ws")
         async def websocket_handler():
             ws = websocket._get_current_object()
-            print(f"[control] New WebSocket connection: {id(websocket)}")
+            print(f"[control] New WebSocket connection: {id(ws)}")
 
             queue = asyncio.Queue()
-            self.clients[ws] = queue
+            self.clients.add(queue)
 
             try:
                 # Send the initial status to the client
@@ -84,11 +87,14 @@ class ControlServer:
 
                 for task in pending:
                     task.cancel()
+
+                await asyncio.gather(*pending, return_exceptions=True)
+
             except Exception as exc:
                 print(f"[control] WebSocket connection error: {exc}")
 
             finally:
-                self.clients.pop(ws, None)
+                self.clients.remove(queue)
                 print(f"[control] WebSocket connection closed: {id(websocket)}")
 
     async def _receive_commands(self, ws):
@@ -110,7 +116,7 @@ class ControlServer:
                 **status
             }
 
-            for queue in list(self.clients.values()):
+            for queue in list(self.clients):
                 await queue.put(message)
 
     async def handle_command(self, raw_message):
@@ -139,6 +145,18 @@ class ControlServer:
             case "volume_down":
                 decrement = message.get("decrement", 0.1)
                 self.player.volume_down(decrement)
+            case "subtitle_style":
+                self.player.update_subtitles(
+                    **message.get("style", {})
+                )
+            case "subtitle_toggle":
+                enabled = message.get("enabled", True)
+                track = message.get("track", 1)
+                if enabled:
+                    self.player.enable_subtitles(track)
+                else:
+                    self.player.disable_subtitles()
+                self.player._notify(self.player.mc.status)
             case _:
                 print(f"[control] Unknown command: {command}")
 

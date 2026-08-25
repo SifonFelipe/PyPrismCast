@@ -8,8 +8,10 @@ def get_chromecasts():
     """
     chromecasts, browser = pychromecast.get_chromecasts()
 
-    if chromecasts:
-        print(f"Found chromecast devices: {len(chromecasts)}")
+    if not chromecasts:
+        raise ChromecastNotFoundError("No Chromecast devices were found")
+
+    print(f"Found {len(chromecasts)} chromecast devices")
     return chromecasts
 
 

@@ -127,4 +127,10 @@ class MediaServer:
 
         self.thread.start()
 
-        print(f"[media] Server started on port {port}")
+        print(f"[media] Server started on port {self.port}")
+
+    def shutdown(self):
+        if self.server:
+            self.server.shutdown()
+            self.thread.join()
+            print(f"[media] Server on port {self.port} stopped")

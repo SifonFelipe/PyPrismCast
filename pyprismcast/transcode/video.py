@@ -102,7 +102,13 @@ def _temp_output_path(path: Path) -> Path:
 # Video encoders by hardware, in order of preference.
 HARDWARE_VIDEO_ENCODERS = [
     # Nvidia (Linux/Windows)
-    ("h264_nvenc", ["-c:v", "h264_nvenc", "-preset", "p4", "-cq", "23"]),
+    ("h264_nvenc", [  # don't allow huge files
+        "-c:v", "h264_nvenc",
+        "-preset", "p4",
+        "-rc", "vbr",
+        "-cq", "23",
+        "-b:v", "0",
+    ]),
     # Apple Silicon / Intel Mac
     ("h264_videotoolbox", ["-c:v", "h264_videotoolbox", "-b:v", "6M"]),
     # Intel QuickSync (Linux/Windows)

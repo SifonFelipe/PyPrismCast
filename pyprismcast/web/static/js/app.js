@@ -19,6 +19,23 @@ const volumeLevelElement = document.getElementById("volume-level");
 const volumeFillElement = document.getElementById("volume-fill");
 const silentAudio = document.getElementById("silent-audio");
 
+// Subtitles
+const subtitlesButton = document.getElementById("subtitles-btn");
+const subtitleModal = document.getElementById("subtitle-modal");
+const subtitleModalClose = document.getElementById("subtitle-modal-close");
+const subtitleEnabledToggle = document.getElementById("subtitle-enabled-toggle");
+const subtitleOptions = document.getElementById("subtitle-options");
+const subtitleScale = document.getElementById("subtitle-scale");
+const subtitleScaleValue = document.getElementById("subtitle-scale-value");
+const subtitleFgColor = document.getElementById("subtitle-fg-color");
+const subtitleFgOpacity = document.getElementById("subtitle-fg-opacity");
+const subtitleFgOpacityValue = document.getElementById("subtitle-fg-opacity-value");
+const subtitleBgColor = document.getElementById("subtitle-bg-color");
+const subtitleBgOpacity = document.getElementById("subtitle-bg-opacity");
+const subtitleBgOpacityValue = document.getElementById("subtitle-bg-opacity-value");
+const subtitleEdgeType = document.getElementById("subtitle-edge-type");
+const subtitleEdgeColor = document.getElementById("subtitle-edge-color");
+
 // Icons reused inside the cast banner's mini play/pause button
 const ICON_PLAY =
     '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">' +
@@ -39,6 +56,10 @@ let lastSyncTime = 0;
 let isSeeking = false;
 // Last known volume (0-1). Null until the first real reading arrives.
 let localVolume = null;
+// Latest subtitle state as reported by player.status.
+let subtitlesEnabled = false;
+let subtitleStyle = null;
+let subtitleModalOpen = false;
 
 // === WebSocket ===
 function connect() {
@@ -146,7 +167,19 @@ function updatePlayerStatus(status) {
     if (status.content_id) {
         movieTitleElement.textContent = getMovieName(status.content_id);
     } else {
-        movieTitleElement.textContent = "Sin contenido";
+        movieTitleElement.textContent = "Waiting for content...";
+    }
+
+    // === Subtitles ===
+    subtitlesEnabled = Boolean(status.subtitles_enabled);
+    if (status.subtitles_style) {
+        subtitleStyle = status.subtitles_style;
+    }
+    updateSubtitlesButton();
+    // Don't overwrite the form fields while the user has the panel open,
+    // same idea as not overwriting the seek bar while dragging it.
+    if (!subtitleModalOpen) {
+        populateSubtitleForm();
     }
 
     updateCastBanner();
@@ -240,15 +273,15 @@ setInterval(updateClock, 250);  // update 4 times per second
 function updateCastBanner() {
     if (!wsConnected) {
         bannerElement.dataset.state = "disconnected";
-        bannerTitleElement.textContent = "Desconectado";
-        bannerSubtitleElement.textContent = "Reintentando conexión\u2026";
+        bannerTitleElement.textContent = "Disconnected";
+        bannerSubtitleElement.textContent = "Retrying connection...\u2026";
         bannerActionButton.hidden = true;
         return;
     }
 
     if (playerState === "PLAYING" || playerState === "PAUSED") {
         bannerElement.dataset.state = playerState === "PLAYING" ? "casting" : "paused";
-        bannerTitleElement.textContent = playerState === "PLAYING" ? "Casteando ahora" : "En pausa";
+        bannerTitleElement.textContent = playerState === "PLAYING" ? "Casting" : "Paused";
         bannerSubtitleElement.textContent = movieTitleElement.textContent;
         bannerActionButton.hidden = false;
         bannerActionButton.innerHTML = playerState === "PLAYING" ? ICON_PAUSE : ICON_PLAY;
@@ -257,8 +290,8 @@ function updateCastBanner() {
     }
 
     bannerElement.dataset.state = "connected";
-    bannerTitleElement.textContent = "Listo para castear";
-    bannerSubtitleElement.textContent = "Elegí algo para reproducir";
+    bannerTitleElement.textContent = "Ready to Cast";
+    bannerSubtitleElement.textContent = "Waiting for content...";
     bannerActionButton.hidden = true;
 }
 
@@ -393,11 +426,116 @@ function getMovieName(contentId) {
         const url = new URL(contentId);
         const pathname = decodeURIComponent(url.pathname);
         const filename = pathname.split("/").pop();
-        return filename || "Contenido desconocido";
+        return filename || "Content unknown";
     } catch {
         return contentId;
     }
 }
+
+// === Subtitles ===
+// The Chromecast text-track style API works with 8-digit ARGB/RGBA hex
+// colors (e.g. "#FFFFFFFF"), but <input type="color"> only understands
+// 6-digit RGB. We split each color into a hex swatch + an opacity slider.
+function splitColor(hex8) {
+    const hex = (hex8 || "#000000FF").replace("#", "");
+    const rgb = `#${hex.slice(0, 6)}`;
+    const alpha = hex.length >= 8 ? parseInt(hex.slice(6, 8), 16) : 255;
+    return {rgb, opacity: Math.round((alpha / 255) * 100)};
+}
+
+function joinColor(rgb, opacityPercent) {
+    const alpha = Math.round((opacityPercent / 100) * 255);
+    const alphaHex = alpha.toString(16).padStart(2, "0").toUpperCase();
+    return `${rgb.toUpperCase()}${alphaHex}`;
+}
+
+function updateSubtitlesButton() {
+    subtitlesButton.setAttribute("aria-pressed", String(subtitlesEnabled));
+}
+
+function populateSubtitleForm() {
+    subtitleEnabledToggle.checked = subtitlesEnabled;
+    subtitleOptions.dataset.disabled = String(!subtitlesEnabled);
+
+    const style = subtitleStyle || {};
+
+    const scale = Number(style.fontScale) || 1;
+    subtitleScale.value = scale;
+    subtitleScaleValue.textContent = `${scale.toFixed(1)}x`;
+
+    const fg = splitColor(style.foregroundColor);
+    subtitleFgColor.value = fg.rgb;
+    subtitleFgOpacity.value = fg.opacity;
+    subtitleFgOpacityValue.textContent = `${fg.opacity}%`;
+
+    const bg = splitColor(style.backgroundColor);
+    subtitleBgColor.value = bg.rgb;
+    subtitleBgOpacity.value = bg.opacity;
+    subtitleBgOpacityValue.textContent = `${bg.opacity}%`;
+
+    subtitleEdgeType.value = style.edgeType || "OUTLINE";
+
+    const edge = splitColor(style.edgeColor);
+    subtitleEdgeColor.value = edge.rgb;
+}
+
+function openSubtitleModal() {
+    populateSubtitleForm();
+    subtitleModalOpen = true;
+    subtitleModal.hidden = false;
+}
+
+function closeSubtitleModal() {
+    subtitleModalOpen = false;
+    subtitleModal.hidden = true;
+}
+
+subtitlesButton.addEventListener("click", openSubtitleModal);
+subtitleModalClose.addEventListener("click", closeSubtitleModal);
+subtitleModal.addEventListener("click", (event) => {
+    if (event.target === subtitleModal) {
+        closeSubtitleModal();
+    }
+});
+
+subtitleEnabledToggle.addEventListener("change", () => {
+    const enabled = subtitleEnabledToggle.checked;
+    subtitleOptions.dataset.disabled = String(!enabled);
+    sendCommand("subtitle_toggle", {enabled, track: 1});
+});
+
+// Live-update the on-screen labels while dragging...
+subtitleScale.addEventListener("input", () => {
+    subtitleScaleValue.textContent = `${Number(subtitleScale.value).toFixed(1)}x`;
+});
+subtitleFgOpacity.addEventListener("input", () => {
+    subtitleFgOpacityValue.textContent = `${subtitleFgOpacity.value}%`;
+});
+subtitleBgOpacity.addEventListener("input", () => {
+    subtitleBgOpacityValue.textContent = `${subtitleBgOpacity.value}%`;
+});
+
+// ...but only push the update to the Chromecast once the user settles on
+// a value, same reasoning as commitSeek: avoid flooding the socket.
+function sendSubtitleStyle() {
+    sendCommand("subtitle_style", {
+        style: {
+            font_scale: Number(subtitleScale.value),
+            foreground_color: joinColor(subtitleFgColor.value, Number(subtitleFgOpacity.value)),
+            background_color: joinColor(subtitleBgColor.value, Number(subtitleBgOpacity.value)),
+            edge_type: subtitleEdgeType.value,
+            edge_color: joinColor(subtitleEdgeColor.value, 100),
+        },
+    });
+}
+
+[
+    subtitleScale, subtitleFgOpacity, subtitleBgOpacity,
+].forEach((input) => input.addEventListener("change", sendSubtitleStyle));
+
+[
+    subtitleFgColor, subtitleBgColor, subtitleEdgeType, subtitleEdgeColor,
+].forEach((input) => input.addEventListener("change", sendSubtitleStyle));
 
 // Start
 updateCastBanner();

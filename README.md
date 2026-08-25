@@ -12,8 +12,7 @@ plays it.
 
 - Python 3.10 or higher
 - [FFmpeg](https://ffmpeg.org/) installed and available in your system path (required for video transcoding).
-- *[uv](https://docs.astral.sh/uv/)* for **dev**
-- `pipx` for installing script at machine level (available from any location in your pc)
+- *[uv](https://docs.astral.sh/uv/)* for **dev** and **installation**
 
 ### Steps
 
@@ -26,10 +25,10 @@ cd PyPrismCast
 ```
 
 #### 2- Install
-To install it at machine level, we are going to use `pipx`
+To install it at machine level, we are going to use `uv`
 
 ```bash
-pipx install -e .
+uv tool install .
 ```
 
 #### 3- Cast your videos!

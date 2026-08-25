@@ -1,42 +1,44 @@
 """
-Handles
-prismcast cast requests.
+Handles `prismcast cast` requests.
 """
 import asyncio
 from threading import Event
 
 from pyprismcast import chromecast as cc
-from pyprismcast.errors import ChromecastNotFoundError, IncompatibleVideoError
+from pyprismcast.errors import IncompatibleVideoError
 from pyprismcast.servers import media, control
 from pyprismcast.servers.utils import get_local_ip
 from pyprismcast.transcode import video
 from pyprismcast.movies import select_movie
-from pyprismcast.servers.utils import CONTROL_PORT, WEB_DIR, HOST
 
 
 def cast(args):
     """
-    Connects to Chromecast, starts media server and control server.
+    Connects to Chromecast,
+    starts media server and control server,
+    and plays the selected movie on the Chromecast device.
     """
-    ip = get_local_ip()
     file = args.path
+    default_device = args.device
+    subtitles = args.subtitles
+    MEDIA_PORT = args.media_port
+    CONTROL_PORT = args.control_port
+    HOST = args.host
 
-    # TODO: arg to say if not formatted correctly, transcode it automatically
+    ip = get_local_ip()
+
     if not video.is_compatible(file):
-        print(f"File {file} is not compatible.")
+        print(
+            f"File {file} is not compatible. Use `prismcast transcode`"
+            f" to transcode the video to a compatible format."
+        )
         raise IncompatibleVideoError(f"File {file} is not compatible with Chromecast.")
 
-    media_server = media.MediaServer(file.parent)  # file.parent = dir parent
+    media_server = media.MediaServer(file.parent, port=MEDIA_PORT)  # file.parent = dir parent
+    media_server.start()
 
-    # === Conection to Chromecast ===
-    default_device = args.device
+    # === Connection to Chromecast ===
     chromecasts = cc.get_chromecasts()
-
-    if not chromecasts:
-        raise ChromecastNotFoundError("Chromecasts not found nearby")
-
-    if default_device and default_device not in chromecasts:
-        raise ChromecastNotFoundError(f"Chromecast {default_device} not found.")
 
     cast = cc.select_chromecast(
         chromecasts=chromecasts,
@@ -44,7 +46,6 @@ def cast(args):
     )
 
     cc.connect(cast)
-
     # === Connected to Chromecast ===
 
     # Create player for control server
@@ -53,12 +54,14 @@ def cast(args):
     movie = select_movie(file.parent, default_movie=file.name)
 
     # URL for Media Server
-    url = f"http://{ip}:8000/{movie.relative_to(file.parent)}"
+    url = f"http://{ip}:{MEDIA_PORT}/{movie.relative_to(file.parent)}"
     print(f"Media server URL: {url}")
 
+    # If subs, create URL for subs and enable subs in player
     sub_url = None
-    if args.subtitles:
-        sub_url = f"http://{ip}:8000/{args.subtitles.relative_to(file.parent)}"
+    if subtitles:
+        sub_url = f"http://{ip}:8000/{subtitles.relative_to(file.parent)}"
+        player.subtitles.enabled = True
         print(f"Subtitles URL: {sub_url}")
 
     player.play_media(
@@ -68,7 +71,10 @@ def cast(args):
     )
     player.block_until_active(timeout=15)
 
-    player.wait_for_subtitles(timeout=20)
+    if player.wait_for_media_session(timeout=20):
+        if subtitles:
+            player.enable_subtitles(track_id=1)
+            player.apply_subtitle_style()
 
     player.play()
 
@@ -78,7 +84,7 @@ def cast(args):
 
     control_server = control.ControlServer(
         player,
-        webdir=WEB_DIR,
+        webdir=control.WEB_DIR,
         shutdown_event=shutdown_event
     )
 
@@ -104,12 +110,14 @@ def cast(args):
 
         try:
             player.stop()
+
         except Exception:
             pass
 
         try:
             cast.quit_app()
             cast.disconnect()
+
         except Exception:
             pass
 
