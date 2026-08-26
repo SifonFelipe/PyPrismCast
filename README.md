@@ -50,7 +50,10 @@ prismcast transcode path/to/movie.mp4
 
 ### Format your subtitles
 Chromecast also allows only one type of subtitle file (`.vtt`).
-`pyprismcast` does not have the command implemented yet but translates them to a .vtt format.
+
+```bash
+prismcast transcode -s path/to/subs.srt
+```
 
 
 ### Cast your video
